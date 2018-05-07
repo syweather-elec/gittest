@@ -1,0 +1,212 @@
+#include "can.h"
+#include "bsp.h"
+ 
+ 
+/*
+*********************************************************************************************************
+*                                          Init_CAN()
+*
+* 功能   ： 初始化CAN。
+*
+* 参数   ： speed ：要初始化的波特率。
+*
+* 返回值 ： 无
+*
+* 注释   ： 无
+*********************************************************************************************************
+*/
+void Init_CAN(u8 speed)
+{
+ 
+    CAN_InitTypeDef  CAN_InitStructure;
+  GPIO_InitTypeDef GPIO_InitStructure;
+    GPIO_PinRemapConfig(GPIO_Remap1_CAN1,ENABLE);
+  /* Configure CAN pin: RX *///设置CAN
+  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
+  GPIO_Init(GPIOB, &GPIO_InitStructure);
+ 
+  /* Configure CAN pin: TX */
+  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
+  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+  GPIO_Init(GPIOB, &GPIO_InitStructure);
+    /* CAN register init */
+    CAN_DeInit(CAN1);
+    CAN_StructInit(&CAN_InitStructure);
+     
+    /* CAN cell init */
+    CAN_InitStructure.CAN_TTCM=DISABLE;
+    CAN_InitStructure.CAN_ABOM=DISABLE;
+    CAN_InitStructure.CAN_AWUM=DISABLE;
+    CAN_InitStructure.CAN_NART=DISABLE;
+    CAN_InitStructure.CAN_RFLM=DISABLE;
+    CAN_InitStructure.CAN_TXFP=DISABLE;
+    CAN_InitStructure.CAN_Mode=CAN_Mode_Normal;
+    CAN_InitStructure.CAN_SJW=CAN_SJW_1tq;
+    CAN_InitStructure.CAN_BS1=CAN_BS1_11tq;
+    CAN_InitStructure.CAN_BS2=CAN_BS2_6tq;
+    CAN_InitStructure.CAN_Prescaler=speed;
+    CAN_Init(CAN1, &CAN_InitStructure);
+    CAN_ITConfig(CAN1, CAN_IT_FMP0, ENABLE);
+ 
+}
+ 
+/*
+*********************************************************************************************************
+*                                          CAN1_Config16BitFilter()
+*
+* 功能   ： 设置CAN滤波器，过两个16位标准帧ID
+*
+* 参数   ： id1 ：要过的一个16位标准帧ID
+*
+*           id2 ：要过的另一个16位标准帧ID
+*
+* 返回值 ： 无
+*
+* 注释   ： 无
+*********************************************************************************************************
+*/
+void CAN1_Config16BitFilter(u16 id1, u16 id2)
+{
+ 
+    CAN_FilterInitTypeDef  CAN_FilterInitStructure;
+     
+    CAN_FilterInitStructure.CAN_FilterNumber=1;          //指定初始化的过滤器1~13
+    CAN_FilterInitStructure.CAN_FilterMode=CAN_FilterMode_IdMask;//标示符屏蔽位模式 可以过滤一组标示符
+    CAN_FilterInitStructure.CAN_FilterScale=CAN_FilterScale_16bit;//2个16位过滤器
+    CAN_FilterInitStructure.CAN_FilterIdHigh=id1;   //0x0000~0xffff  FC00>>7E0 
+    CAN_FilterInitStructure.CAN_FilterIdLow=id2;    //0x0000~0xffff
+    CAN_FilterInitStructure.CAN_FilterMaskIdHigh=0xFFFF;
+    CAN_FilterInitStructure.CAN_FilterMaskIdLow=0xffff;
+    CAN_FilterInitStructure.CAN_FilterFIFOAssignment=CAN_FIFO0;
+    CAN_FilterInitStructure.CAN_FilterActivation=ENABLE;
+  
+    CAN_FilterInit(&CAN_FilterInitStructure);
+ 
+}
+ 
+/*
+*********************************************************************************************************
+*                                          CAN1_Config32BitFilter()
+*
+* 功能   ： 设置CAN滤波器，过一个32位扩展帧ID
+*
+* 参数   ： id ：要过的32位为扩展帧ID
+*
+* 返回值 ： 无
+*
+* 注释   ： 无
+*********************************************************************************************************
+*/
+void CAN1_Config32BitFilter(u32 id)
+{
+ 
+    u32 j=0xffffffff;
+    CAN_FilterInitTypeDef  CAN_FilterInitStructure;
+     
+    CAN_FilterInitStructure.CAN_FilterNumber=1;
+    CAN_FilterInitStructure.CAN_FilterMode=CAN_FilterMode_IdMask;
+    CAN_FilterInitStructure.CAN_FilterScale=CAN_FilterScale_32bit;
+    CAN_FilterInitStructure.CAN_FilterIdHigh=id>>13;
+    CAN_FilterInitStructure.CAN_FilterIdLow=(id<<3)|4;
+    CAN_FilterInitStructure.CAN_FilterMaskIdHigh=j>>13;
+    CAN_FilterInitStructure.CAN_FilterMaskIdLow=(j<<3)|4;
+    CAN_FilterInitStructure.CAN_FilterFIFOAssignment=CAN_FIFO0;
+    CAN_FilterInitStructure.CAN_FilterActivation=ENABLE;
+  
+    CAN_FilterInit(&CAN_FilterInitStructure);
+ 
+}
+ 
+ 
+void CAN_setAllfit(void)
+{
+ 
+  CAN_FilterInitTypeDef  CAN_FilterInitStructure;
+  CAN_FilterInitStructure.CAN_FilterNumber = 0;
+  CAN_FilterInitStructure.CAN_FilterMode = CAN_FilterMode_IdMask;
+  CAN_FilterInitStructure.CAN_FilterScale = CAN_FilterScale_16bit;
+  CAN_FilterInitStructure.CAN_FilterMaskIdHigh =0X0000;
+  CAN_FilterInitStructure.CAN_FilterMaskIdLow =0X0000;
+  CAN_FilterInitStructure.CAN_FilterFIFOAssignment = 0;
+  CAN_FilterInitStructure.CAN_FilterActivation = ENABLE;
+  CAN_FilterInit(&CAN_FilterInitStructure);
+ 
+}
+ 
+uint8_t ASCIIhex(uint8_t dat)
+{
+ 
+  if (dat>='A')
+  return (dat-'A'+10);
+  else
+  return (dat-'0');
+ 
+}
+ 
+/*设置标准帧滤波器 "SCANA1 2 5E8 7E8 7FF 7FF"*/
+void CAN_setstdfit(void)
+{
+ 
+  uint16_t i;
+  CAN_FilterInitTypeDef  CAN_FilterInitStructure;
+  CAN_FilterInitStructure.CAN_FilterNumber = 0;
+  CAN_FilterInitStructure.CAN_FilterMode = CAN_FilterMode_IdMask;
+  CAN_FilterInitStructure.CAN_FilterScale = CAN_FilterScale_16bit;
+ 
+  i=(ASCIIhex(BUF_MO[13])<<12)|(ASCIIhex(BUF_MO[14])<<8)|ASCIIhex(BUF_MO[15])<<4|ASCIIhex(BUF_MO[16]);
+  CAN_FilterInitStructure.CAN_FilterIdHigh = i;
+  i=(ASCIIhex(BUF_MO[18])<<12)|(ASCIIhex(BUF_MO[19])<<8)|ASCIIhex(BUF_MO[20])<<4|ASCIIhex(BUF_MO[21]);
+  CAN_FilterInitStructure.CAN_FilterIdLow = i;
+ 
+  CAN_FilterInitStructure.CAN_FilterMaskIdHigh=0xFFFF;
+  CAN_FilterInitStructure.CAN_FilterMaskIdLow=0xffff;
+ 
+  CAN_FilterInitStructure.CAN_FilterFIFOAssignment = 0;
+  CAN_FilterInitStructure.CAN_FilterActivation = ENABLE;
+  CAN_FilterInit(&CAN_FilterInitStructure);
+ 
+}
+ 
+ 
+ 
+/*********************************************************************************************************
+*                                          Send_Frame_CAN()
+*
+* 功能   ： 
+*
+* 参数   ： u32 id,u8 *cmdaddr 
+*
+* 返回值 ： 无
+*
+* 注释   ： 无  标准CAN发送函数
+*********************************************************************************************************
+*/
+ 
+void Send_Frame_CAN(u32 id,u8 *cmdaddr)   //
+{
+ 
+   
+  Stollen = 0x08;  //数据长度
+  TbufMege.StdId = id/0X20;// ST帧ID
+  TbufMege.ExtId = 0; 
+TbufMege.IDE=CAN_ID_STD;  //标准帧
+  TbufMege.RTR = CAN_RTR_DATA; //数据帧
+  TbufMege.DLC = Stollen;       //发送数据长度  
+printf("Req:%02X %04X",Stollen,id);
+ 
+  for(Sidx = 0; Sidx < Stollen; Sidx ++) 
+  {
+ 
+      
+ TbufMege.Data[Sidx] = cmdaddr[Sidx];
+ printf(" %02X",TbufMege.Data[Sidx]);
+ 
+   
+}
+printf("\n");
+  CAN_Transmit(CAN1, &TbufMege);       //发送数据
+  
+ 
+}
